@@ -126,7 +126,9 @@
               multiple
               filterable
               clearable
+              :loading="manualStructureLoading"
               style="width: 100%"
+              @end-reached="handleManualStructureEndReached"
             >
               <ElOption
                 v-for="opt in manualStructureOptions"
@@ -268,7 +270,8 @@
     ElFormItem,
     ElInputNumber,
     ElMessage,
-    ElDivider
+    ElDivider,
+    type ScrollbarDirection
   } from 'element-plus'
   import { Search } from '@element-plus/icons-vue'
   import { useI18n } from 'vue-i18n'
@@ -309,6 +312,11 @@
   const fuelSettingSaving = ref(false)
   const payoutDialogVisible = ref(false)
   const payoutPendingOnly = ref(true)
+  const manualStructureLoading = ref(false)
+  const manualStructurePage = ref(0)
+  const manualStructureTotal = ref(0)
+  const manualStructurePageSize = 50
+  const manualStructureOptionMap = ref<Map<number, string>>(new Map())
   const fuelSettingForm = reactive<Api.CorpStructure.FuelSettingUpdateRequest>({
     corporation_id: 0,
     enabled: false,
@@ -344,10 +352,7 @@
   ])
 
   const manualStructureOptions = computed(() => {
-    const options = new Map<number, string>()
-    ;(data.value as Api.CorpStructure.StructureItem[]).forEach((row) => {
-      options.set(row.structure_id, row.name || String(row.structure_id))
-    })
+    const options = new Map<number, string>(manualStructureOptionMap.value)
     fuelSettingForm.manual_structure_ids.forEach((id) => {
       if (!options.has(id)) options.set(id, `${t('corpStructure.structurePrefix')} ${id}`)
     })
@@ -404,52 +409,7 @@
   }
 
   async function fetchStructureTable(params: Api.CorpStructure.ListRequest) {
-    if (!params.task_filter) {
-      return fetchCorpStructureList(params)
-    }
-
-    const pageSize = 100
-    const baseParams: Api.CorpStructure.ListRequest = {
-      ...params,
-      current: 1,
-      size: pageSize,
-      task_filter: undefined
-    }
-
-    const firstPage = await fetchCorpStructureList(baseParams)
-    const mergedList = [...(firstPage?.list ?? [])]
-    const total = firstPage?.total ?? mergedList.length
-    const totalPages = Math.max(1, Math.ceil(total / pageSize))
-
-    for (let page = 2; page <= totalPages; page += 1) {
-      const pageData = await fetchCorpStructureList({
-        ...baseParams,
-        current: page
-      })
-      mergedList.push(...(pageData?.list ?? []))
-    }
-
-    const filteredList = mergedList.filter((row) => {
-      if (params.task_filter === 'claimed') {
-        return row.fuel_task?.status === 'claimed'
-      }
-      if (params.task_filter === 'claimable') {
-        return !!row.can_claim
-      }
-      return true
-    })
-
-    const current = params.current || 1
-    const size = params.size || 20
-    const start = (current - 1) * size
-    const end = start + size
-
-    return {
-      list: filteredList.slice(start, end),
-      total: filteredList.length,
-      page: current,
-      pageSize: size
-    }
+    return fetchCorpStructureList(params)
   }
 
   async function resolveNames(rows: Api.CorpStructure.StructureItem[]) {
@@ -962,11 +922,50 @@
         isk_calc_mode: setting?.isk_calc_mode ?? 'per_hour',
         isk_value: setting?.isk_value ?? 0
       })
+      manualStructureOptionMap.value = new Map()
+      manualStructurePage.value = 0
+      manualStructureTotal.value = 0
+      await loadManualStructureOptions(true)
     } catch (e: any) {
       ElMessage.error(e?.message || t('common.error'))
     } finally {
       fuelSettingLoading.value = false
     }
+  }
+
+  async function loadManualStructureOptions(reset = false) {
+    const corpID = fuelSettingForm.corporation_id
+    if (!corpID || manualStructureLoading.value) return
+    if (!reset && manualStructureOptionMap.value.size >= manualStructureTotal.value) return
+
+    const nextPage = reset ? 1 : manualStructurePage.value + 1
+    manualStructureLoading.value = true
+    try {
+      const res = await fetchCorpStructureList({
+        current: nextPage,
+        size: manualStructurePageSize,
+        corp_id: corpID
+      })
+      const nextMap = new Map(manualStructureOptionMap.value)
+      ;(res?.list ?? []).forEach((row) => {
+        nextMap.set(
+          row.structure_id,
+          row.name || `${t('corpStructure.structurePrefix')} ${row.structure_id}`
+        )
+      })
+      manualStructureOptionMap.value = nextMap
+      manualStructurePage.value = nextPage
+      manualStructureTotal.value = res?.total ?? nextMap.size
+    } catch (e: any) {
+      ElMessage.error(e?.message || t('common.error'))
+    } finally {
+      manualStructureLoading.value = false
+    }
+  }
+
+  function handleManualStructureEndReached(direction: ScrollbarDirection) {
+    if (direction !== 'bottom') return
+    void loadManualStructureOptions()
   }
 
   async function saveFuelSetting() {
