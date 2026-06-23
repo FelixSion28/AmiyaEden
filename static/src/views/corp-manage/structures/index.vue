@@ -277,7 +277,8 @@
   defineOptions({ name: 'CorpStructures' })
   const { t, locale } = useI18n()
   const userStore = useUserStore()
-  const actionLoading = ref<Record<number, boolean>>({})
+  const structureActionLoading = ref<Record<number, boolean>>({})
+  const payoutActionLoading = ref<Record<number, boolean>>({})
 
   const corpIDs = ref<number[]>([])
   const selectedCorpID = ref<number | undefined>(undefined)
@@ -613,7 +614,7 @@
                   {
                     type: 'primary',
                     size: 'small',
-                    loading: actionLoading.value[row.structure_id] ?? false,
+                  loading: structureActionLoading.value[row.structure_id] ?? false,
                     onClick: () => handleClaim(ext)
                   },
                   () => t('corpStructure.actions.claim')
@@ -627,7 +628,7 @@
                   {
                     type: 'success',
                     size: 'small',
-                    loading: actionLoading.value[row.structure_id] ?? false,
+                  loading: structureActionLoading.value[row.structure_id] ?? false,
                     onClick: () => handleSettle(ext)
                   },
                   () => t('corpStructure.actions.settle')
@@ -654,7 +655,7 @@
                     type: 'danger',
                     plain: true,
                     size: 'small',
-                    loading: actionLoading.value[row.structure_id] ?? false,
+                  loading: structureActionLoading.value[row.structure_id] ?? false,
                     onClick: () => handleCancelClaim(ext)
                   },
                   () => t('corpStructure.actions.cancelClaim')
@@ -791,7 +792,7 @@
                 {
                   type: 'warning',
                   size: 'small',
-                  loading: actionLoading.value[row.id] ?? false,
+                  loading: payoutActionLoading.value[row.id] ?? false,
                   onClick: () => handleMarkIskPaidFromDialog(row)
                 },
                 () => t('corpStructure.actions.markIskPaid')
@@ -854,7 +855,7 @@
   }
 
   async function handleClaim(row: Api.CorpStructure.StructureItem) {
-    actionLoading.value[row.structure_id] = true
+    structureActionLoading.value[row.structure_id] = true
     try {
       await claimCorpStructureFuelTask(row.structure_id)
       ElMessage.success(t('corpStructure.messages.claimSuccess'))
@@ -862,12 +863,12 @@
     } catch (e: any) {
       ElMessage.error(e?.message || t('common.error'))
     } finally {
-      actionLoading.value[row.structure_id] = false
+      structureActionLoading.value[row.structure_id] = false
     }
   }
 
   async function handleCancelClaim(row: Api.CorpStructure.StructureItem) {
-    actionLoading.value[row.structure_id] = true
+    structureActionLoading.value[row.structure_id] = true
     try {
       await cancelCorpStructureFuelTask(row.structure_id)
       ElMessage.success(t('corpStructure.messages.cancelClaimSuccess'))
@@ -875,12 +876,12 @@
     } catch (e: any) {
       ElMessage.error(e?.message || t('common.error'))
     } finally {
-      actionLoading.value[row.structure_id] = false
+      structureActionLoading.value[row.structure_id] = false
     }
   }
 
   async function handleSettle(row: Api.CorpStructure.StructureItem) {
-    actionLoading.value[row.structure_id] = true
+    structureActionLoading.value[row.structure_id] = true
     try {
       const result = await settleCorpStructureFuelTask(row.structure_id)
       ElMessage.success(
@@ -893,12 +894,12 @@
     } catch (e: any) {
       ElMessage.error(e?.message || t('common.error'))
     } finally {
-      actionLoading.value[row.structure_id] = false
+      structureActionLoading.value[row.structure_id] = false
     }
   }
 
   async function handleMarkIskPaidFromDialog(row: FuelTaskListItem) {
-    actionLoading.value[row.id] = true
+    payoutActionLoading.value[row.id] = true
     try {
       await markCorpStructureFuelTaskIskPaid(row.id)
       ElMessage.success(t('corpStructure.messages.markIskPaidSuccess'))
@@ -909,7 +910,7 @@
     } catch (e: any) {
       ElMessage.error(e?.message || t('common.error'))
     } finally {
-      actionLoading.value[row.id] = false
+      payoutActionLoading.value[row.id] = false
     }
   }
 
