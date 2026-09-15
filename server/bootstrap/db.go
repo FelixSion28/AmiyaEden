@@ -72,8 +72,6 @@ func autoMigrate(db *gorm.DB) {
 		&model.EveCharacterImplants{},
 		&model.EveStructure{},
 		&model.CorpStructureInfo{},
-		&model.CorpStructureFuelSetting{},
-		&model.CorpStructureFuelTask{},
 		&model.EveStation{},
 
 		&model.EveKillmailList{},
